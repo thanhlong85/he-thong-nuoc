@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hệ thống lấy nước</title>
+  <style>
+    * { box-sizing: border-box; }
+    body{
+      margin:0;
+      font-family:Arial,Helvetica,sans-serif;
+      min-height:100vh;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      background:radial-gradient(circle at top, #2d8cff 0%, #0f4c81 35%, #08233d 75%, #04101d 100%);
+      color:#fff;
+    }
+    .card{
+      width:92%;
+      max-width:430px;
+      padding:26px 20px 28px;
+      border-radius:28px;
+      background:rgba(255,255,255,0.10);
+      border:1px solid rgba(255,255,255,0.15);
+      box-shadow:0 10px 35px rgba(0,0,0,0.35);
+      backdrop-filter:blur(8px);
+      text-align:center;
+    }
+    .title{
+      margin:0;
+      font-size:30px;
+      font-weight:800;
+      letter-spacing:1px;
+    }
+    .sub{
+      margin-top:8px;
+      font-size:15px;
+      opacity:0.9;
+    }
+    .status{
+      display:inline-block;
+      margin-top:18px;
+      padding:8px 18px;
+      border-radius:999px;
+      font-size:15px;
+      font-weight:700;
+      background:rgba(41,98,255,0.20);
+      color:#d8efff;
+    }
+    .countdown{
+      margin-top:14px;
+      font-size:62px;
+      line-height:1;
+      font-weight:900;
+      letter-spacing:2px;
+      color:#9be7ff;
+      text-shadow:0 0 10px rgba(70,200,255,0.35), 0 0 24px rgba(70,200,255,0.20);
+    }
+    .hint{
+      margin-top:12px;
+      font-size:20px;
+      font-weight:700;
+      color:#00e5ff;
+      text-shadow:0 0 8px rgba(0,229,255,0.8), 0 0 16px rgba(0,229,255,0.4);
+    }
+    .code-input{
+      width:100%;
+      margin-top:18px;
+      padding:16px;
+      border:none;
+      border-radius:16px;
+      font-size:28px;
+      text-align:center;
+      letter-spacing:6px;
+      outline:none;
+    }
+    .btn{
+      display:block;
+      width:100%;
+      padding:18px 16px;
+      margin-top:16px;
+      border:none;
+      border-radius:18px;
+      font-size:22px;
+      font-weight:800;
+      color:#fff;
+      background:linear-gradient(180deg,#3d8bff,#1c5dff);
+      box-shadow:0 8px 20px rgba(0,0,0,0.25);
+      cursor:pointer;
+    }
+    .note{
+      margin-top:10px;
+      font-size:14px;
+      opacity:0.85;
+    }
+    .msg{
+      margin-top:14px;
+      min-height:22px;
+      font-weight:700;
+      font-size:16px;
+    }
+    .ok{ color:#8cffc7; }
+    .err{ color:#ffd54f; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="title">HỆ THỐNG LẤY NƯỚC</div>
+    <div class="sub">Tự động cấp nước uống</div>
+    <div class="status">● SẴN SÀNG</div>
+    <div class="countdown">05:00</div>
+
+    <input id="code" class="code-input" maxlength="4" inputmode="numeric" placeholder="----">
+    <button class="btn" onclick="openWater()">MỞ NƯỚC</button>
+
+    <div class="hint">Cảm ơn bạn đã sử dụng nước tiết kiệm 💧</div>
+    <div class="note">Nhập mã 4 số đang hiển thị trên màn hình OLED</div>
+    <div id="msg" class="msg"></div>
+  </div>
+
+  <script>
+    const DATABASE_URL = "https://he-thong-nuoc-default-rtdb.asia-southeast1.firebasedatabase.app";
+
+    function setMsg(text, cls) {
+      const msg = document.getElementById("msg");
+      msg.className = "msg " + cls;
+      msg.textContent = text;
+    }
+
+    async function openWater() {
+      const code = document.getElementById("code").value.trim();
+
+      if (!/^\d{4}$/.test(code)) {
+        setMsg("Vui lòng nhập đúng mã 4 số.", "err");
+        return;
+      }
+
+      setMsg("Đang gửi yêu cầu...", "ok");
+
+      try {
+        await fetch(`${DATABASE_URL}/request.json`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "open",
+            code: code
+          })
+        });
+
+        setTimeout(checkResult, 2000);
+      } catch (e) {
+        setMsg("Không gửi được yêu cầu.", "err");
+      }
+    }
+
+    async function checkResult() {
+      try {
+        const res = await fetch(`${DATABASE_URL}/result.json`);
+        const data = await res.json();
+
+        if (data === "OK") {
+          setMsg("Đã mở nước thành công.", "ok");
+        } else if (data === "SAI_MA") {
+          setMsg("Mã không đúng hoặc đã hết hạn.", "err");
+        } else if (data === "READY") {
+          setMsg("ESP đang sẵn sàng, thử lại một lần nữa.", "err");
+        } else {
+          setMsg("Đã gửi yêu cầu, vui lòng chờ thêm.", "ok");
+        }
+      } catch (e) {
+        setMsg("Không đọc được phản hồi.", "err");
+      }
+    }
+  </script>
+</body>
+</html>
