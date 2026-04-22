@@ -7,7 +7,7 @@
   <style>
     body {
       margin: 0;
-      font-family: Arial;
+      font-family: Arial, sans-serif;
       background: linear-gradient(#2d8cff, #08233d);
       color: white;
       text-align: center;
@@ -17,13 +17,20 @@
     .box {
       max-width: 420px;
       margin: auto;
-      background: rgba(255,255,255,0.1);
-      padding: 20px;
+      background: rgba(255,255,255,0.10);
+      padding: 22px;
       border-radius: 20px;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.25);
     }
 
     h1 {
-      font-size: 26px;
+      font-size: 28px;
+      margin: 0 0 8px;
+    }
+
+    .sub {
+      margin: 0 0 18px;
+      opacity: 0.9;
     }
 
     input {
@@ -31,9 +38,10 @@
       padding: 15px;
       font-size: 24px;
       text-align: center;
-      margin-top: 20px;
+      margin-top: 18px;
       border-radius: 10px;
       border: none;
+      outline: none;
     }
 
     button {
@@ -45,15 +53,22 @@
       border-radius: 10px;
       color: white;
       cursor: pointer;
+      font-weight: bold;
     }
 
-    .btn-open { background: #0066ff; }
-    .btn-stop { background: #e60000; }
+    .btn-open {
+      background: #0066ff;
+    }
+
+    .btn-stop {
+      background: #e60000;
+    }
 
     .msg {
-      margin-top: 15px;
+      margin-top: 16px;
       font-weight: bold;
       min-height: 24px;
+      font-size: 18px;
     }
 
     .ok { color: #8cffc7; }
@@ -62,84 +77,114 @@
     .hint {
       margin-top: 20px;
       color: #00ffff;
+      font-weight: bold;
+      font-size: 18px;
+    }
+
+    .note {
+      margin-top: 10px;
+      opacity: 0.9;
     }
   </style>
 </head>
 <body>
+  <div class="box">
+    <h1>HỆ THỐNG LẤY NƯỚC</h1>
+    <div class="sub">Tự động cấp nước uống</div>
 
-<div class="box">
-  <h1>HỆ THỐNG LẤY NƯỚC</h1>
+    <input id="code" placeholder="Nhập mã 4 số" maxlength="4" inputmode="numeric">
 
-  <input id="code" placeholder="Nhập mã 4 số" maxlength="4">
+    <button class="btn-open" onclick="openWater()">MỞ NƯỚC</button>
+    <button class="btn-stop" onclick="stopWater()">TẮT NGAY</button>
 
-  <button class="btn-open" onclick="openWater()">MỞ NƯỚC</button>
-  <button class="btn-stop" onclick="stopWater()">TẮT NGAY</button>
+    <div class="msg" id="msg"></div>
 
-  <div class="msg" id="msg"></div>
-</div>
+    <div class="note">Nhập đúng mã đang hiện trên màn hình OLED</div>
+    <div class="hint">Cảm ơn bạn đã sử dụng nước tiết kiệm 💧</div>
+  </div>
 
-<script>
-const URL = "https://he-thong-nuoc-default-rtdb.asia-southeast1.firebasedatabase.app";
-let lastTs = 0;
+  <script>
+    const URL = "https://he-thong-nuoc-default-rtdb.asia-southeast1.firebasedatabase.app";
+    let lastTs = 0;
 
-function setMsg(t, c="") {
-  let m = document.getElementById("msg");
-  m.className = "msg " + c;
-  m.innerText = t;
-}
+    function setMsg(text, cls = "") {
+      const msg = document.getElementById("msg");
+      msg.className = "msg " + cls;
+      msg.innerText = text;
+    }
 
-async function send(data) {
-  lastTs = Date.now();
+    async function sendRequest(data) {
+      lastTs = Date.now();
 
-  await fetch(URL + "/result.json", {
-    method: "PUT",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({status:"WAIT", ts:lastTs})
-  });
+      await fetch(URL + "/result.json", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "WAIT",
+          ts: lastTs
+        })
+      });
 
-  data.ts = lastTs;
+      data.ts = lastTs;
 
-  await fetch(URL + "/request.json", {
-    method: "PUT",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify(data)
-  });
+      await fetch(URL + "/request.json", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
 
-  setTimeout(check, 2500);
-}
+      setTimeout(checkResult, 2500);
+    }
 
-function openWater() {
-  let code = document.getElementById("code").value.trim();
+    async function openWater() {
+      const code = document.getElementById("code").value.trim();
 
-  if (!/^\d{4}$/.test(code)) {
-    setMsg("Nhập đúng 4 số!", "err");
-    return;
-  }
+      if (!/^\d{4}$/.test(code)) {
+        setMsg("Nhập đúng 4 số!", "err");
+        return;
+      }
 
-  setMsg("Đang mở...", "ok");
-  send({action:"open", code:code});
-}
+      setMsg("Đang gửi yêu cầu mở...", "ok");
+      await sendRequest({
+        action: "open",
+        code: code
+      });
+    }
 
-function stopWater() {
-  setMsg("Đang tắt...", "ok");
-  send({action:"stop"});
-}
+    async function stopWater() {
+      setMsg("Đang gửi yêu cầu tắt...", "ok");
+      await sendRequest({
+        action: "stop"
+      });
+    }
 
-async function check() {
-  let r = await fetch(URL + "/result.json");
-  let d = await r.json();
+    async function checkResult() {
+      try {
+        const r = await fetch(URL + "/result.json");
+        const d = await r.json();
 
-  if (!d || d.ts !== lastTs) {
-    setMsg("Không có phản hồi!", "err");
-    return;
-  }
+        if (!d) {
+          setMsg("Không có phản hồi!", "err");
+          return;
+        }
 
-  if (d.status === "OK") setMsg("Mở nước thành công!", "ok");
-  else if (d.status === "SAI_MA") setMsg("Sai mã!", "err");
-  else if (d.status === "STOP_OK") setMsg("Đã tắt!", "ok");
-  else setMsg("Đang xử lý...");
-}
-</script>
-
+        if (d.status === "OK") {
+          setMsg("Mở nước thành công!", "ok");
+        } else if (d.status === "SAI_MA") {
+          setMsg("Sai mã hoặc mã đã đổi!", "err");
+        } else if (d.status === "STOP_OK") {
+          setMsg("Đã tắt nước!", "ok");
+        } else if (d.status === "NOT_RUNNING") {
+          setMsg("Hệ thống hiện không chạy.", "err");
+        } else if (d.status === "WAIT") {
+          setMsg("Đã gửi yêu cầu, vui lòng chờ thêm.", "err");
+        } else {
+          setMsg("Không có phản hồi rõ ràng.", "err");
+        }
+      } catch (e) {
+        setMsg("Lỗi kết nối, thử lại.", "err");
+      }
+    }
+  </script>
 </body>
 </html>
